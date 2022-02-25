@@ -85,10 +85,12 @@
 #define MATHFU_COMPILE_WITH_SIMD
 #elif defined(__ARM_NEON__)
 #define MATHFU_COMPILE_WITH_SIMD
-#elif defined(_M_IX86_FP)  // MSVC
+#elif defined(_M_IX86_FP)  // MSVC targeting x86
 #if _M_IX86_FP >= 1        // SSE enabled
 #define MATHFU_COMPILE_WITH_SIMD
 #endif  // _M_IX86_FP >= 1
+#elif (defined(_M_AMD64) || defined(_M_X64))
+#define MATHFU_COMPILE_WITH_SIMD // MSVC targeting X64 implies SSE+SSE2
 #endif
 #endif  // !defined(MATHFU_COMPILE_WITHOUT_SIMD_SUPPORT)
 
@@ -497,7 +499,7 @@ inline void *AllocateAligned(size_t n) {
   // Write out original buffer pointer before aligned buffer.
   // The assert will fail if the allocator granularity is less than the pointer
   // size, or if MATHFU_ALIGNMENT doesn't fit two pointers.
-  assert(static_cast<size_t>(aligned_buf - buf) >= sizeof(void *));
+  assert(static_cast<size_t>(aligned_buf - buf) > sizeof(void *));
   *(reinterpret_cast<uint8_t **>(aligned_buf) - 1) = buf;
   return aligned_buf;
 #endif  // defined(_MSC_VER) && _MSC_VER >= 1900 // MSVC 2015
@@ -593,19 +595,7 @@ class simd_allocator : public std::allocator<T> {
   void *operator new(std::size_t n) { return mathfu::AllocateAligned(n); }   \
   void *operator new[](std::size_t n) { return mathfu::AllocateAligned(n); } \
   void operator delete(void *p) noexcept { mathfu::FreeAligned(p); }         \
-  void operator delete[](void *p) noexcept { mathfu::FreeAligned(p); }       \
-  void *operator new(std::size_t n, const std::nothrow_t&) noexcept {        \
-    return mathfu::AllocateAligned(n);                                       \
-  }                                                                          \
-  void *operator new[](std::size_t n, const std::nothrow_t&) noexcept {      \
-    return mathfu::AllocateAligned(n);                                       \
-  }                                                                          \
-  void operator delete(void *p, const std::nothrow_t&) noexcept {            \
-    mathfu::FreeAligned(p);                                                  \
-  }                                                                          \
-  void operator delete[](void *p, const std::nothrow_t&) noexcept {          \
-    mathfu::FreeAligned(p);                                                  \
-  }
+  void operator delete[](void *p) noexcept { mathfu::FreeAligned(p); }
 
 /// @def MATHFU_DEFINE_CLASS_SIMD_AWARE_NEW_DELETE
 /// @brief Macro which defines the new and delete for MathFu classes.
